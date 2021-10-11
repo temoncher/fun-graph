@@ -11,9 +11,10 @@ export type Vertex = string;
 export type Weight = number;
 export type Edge = [start: Vertex, end: Vertex, weight: Weight];
 export type AdjacencyMatrix = Record<Vertex, Record<Vertex, O.Option<Weight>>>;
+export type AdjacencyList = Record<Vertex, [end: Vertex, weight: Weight][]>;
 export type Graph = {
   _tag: 'Graph';
-  _verticies: Vertex[];
+  _vertices: Vertex[];
   _edges: Edge[];
 };
 
@@ -21,12 +22,12 @@ export namespace Graph {
   type Empty = () => Graph;
   export const empty: Empty = () => ({
     _tag: 'Graph',
-    _verticies: [],
+    _vertices: [],
     _edges: [],
   });
 
   // eslint-disable-next-line @typescript-eslint/naming-convention
-  const _sortVerticies = A.sort(S.Ord);
+  const _sortVertices = A.sort(S.Ord);
   // eslint-disable-next-line @typescript-eslint/naming-convention
   const _sortEdges = A.sort(
     Ord.fromCompare<Edge>(([start1, end1, weight1], [start2, end2, weight2]) => {
@@ -44,40 +45,40 @@ export namespace Graph {
     }),
   );
 
-  type FromVerticies = (verticies: Vertex[]) => Graph;
-  export const fromVerticies: FromVerticies = (verticies) => ({
+  type FromVertices = (vertices: Vertex[]) => Graph;
+  export const fromVertices: FromVertices = (vertices) => ({
     _tag: 'Graph',
-    _verticies: _sortVerticies(verticies),
+    _vertices: _sortVertices(vertices),
     _edges: [],
   });
 
   type FromEdges = (edges: Edge[]) => Graph;
   export const fromEdges: FromEdges = (edges) => {
-    const sortedVerticies = F.pipe(
+    const sortedVertices = F.pipe(
       edges,
       A.chain(([start, end, weight]) => [start, end]),
       A.uniq(S.Eq),
-      _sortVerticies,
+      _sortVertices,
     );
 
     return {
       _tag: 'Graph',
-      _verticies: sortedVerticies,
+      _vertices: sortedVertices,
       _edges: _sortEdges(edges),
     };
   };
 
   type FromAdjacencyMatrix = (adjacencyMatrix: AdjacencyMatrix) => Graph;
   export const fromAdjacencyMatrix: FromAdjacencyMatrix = (adjacencyMatrix) => {
-    const verticies = F.pipe(
+    const sortedVertices = F.pipe(
       adjacencyMatrix,
       Object.keys,
-      _sortVerticies,
+      _sortVertices,
     );
-    const edges: Edge[] = F.pipe(
+    const sortedEdges: Edge[] = F.pipe(
       Object.entries(adjacencyMatrix),
-      A.chain(([start, currentEdges]) => F.pipe(
-        Object.entries(currentEdges),
+      A.chain(([start, edgesToWeightsMap]) => F.pipe(
+        Object.entries(edgesToWeightsMap),
         A.map<[string, O.Option<number>], O.Option<Edge>>(([end, weightOption]) => F.pipe(
           weightOption,
           O.map((weight) => [start, end, weight]),
@@ -85,19 +86,43 @@ export namespace Graph {
         A.filter(O.isSome),
         A.map((edgeSome) => edgeSome.value),
       )),
+      _sortEdges,
     );
 
     return {
       _tag: 'Graph',
-      _verticies: verticies,
-      _edges: edges,
+      _vertices: sortedVertices,
+      _edges: sortedEdges,
+    };
+  };
+
+  type FromAdjacencyList = (adjacencyList: AdjacencyList) => Graph;
+  export const fromAdjacencyList: FromAdjacencyList = (adjacencyList) => {
+    const sortedVertices = F.pipe(
+      adjacencyList,
+      Object.keys,
+      _sortVertices,
+    );
+    const sortedEdges = F.pipe(
+      Object.entries(adjacencyList),
+      A.chain(([start, endsAndWeights]) => F.pipe(
+        endsAndWeights,
+        A.map<[string, number], Edge>(([end, weight]) => [start, end, weight]),
+      )),
+      _sortEdges,
+    );
+
+    return {
+      _tag: 'Graph',
+      _vertices: sortedVertices,
+      _edges: sortedEdges,
     };
   };
 
   // eslint-disable-next-line @typescript-eslint/naming-convention
-  const _verticiesLens = F.pipe(
+  const _verticesLens = F.pipe(
     lens.id<Graph>(),
-    lens.prop('_verticies'),
+    lens.prop('_vertices'),
   );
 
   // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -106,15 +131,15 @@ export namespace Graph {
     lens.prop('_edges'),
   );
 
-  type GetVerticies = (graph: Graph) => Vertex[];
-  export const getVerticies: GetVerticies = _verticiesLens.get;
+  type GetVertices = (graph: Graph) => Vertex[];
+  export const getVertices: GetVertices = _verticesLens.get;
 
   type GetEdges = (graph: Graph) => Edge[];
   export const getEdges: GetEdges = _edgesLens.get;
 
   type GetAdjacencyMatrix = (graph: Graph) => AdjacencyMatrix;
   export const getAdjacencyMatrix: GetAdjacencyMatrix = (graph) => {
-    const vertices = getVerticies(graph);
+    const vertices = getVertices(graph);
     const edges = getEdges(graph);
     const emptyMatrix: AdjacencyMatrix = Object.fromEntries(vertices.map((outerVertex) => {
       const matrixRow = vertices.map((innerVertex) => [innerVertex, O.none] as const);
@@ -122,17 +147,41 @@ export namespace Graph {
       return [outerVertex, Object.fromEntries(matrixRow)] as const;
     }));
 
-    return edges.reduce<AdjacencyMatrix>((matrixSoFar, [start, end, weight]) => F.pipe(
-      matrixSoFar,
-      R.modifyAt(start, F.flow(
-        R.updateAt(end, O.some(weight)),
+    return F.pipe(
+      edges,
+      A.reduce(emptyMatrix, (matrixSoFar, [start, end, weight]) => F.pipe(
+        matrixSoFar,
+        R.modifyAt(start, F.flow(
+          R.updateAt(end, O.some(weight)),
+          O.getOrElseW(() => {
+            throw new Error('Didn\'t find corresponding vertex');
+          }),
+        )),
         O.getOrElseW(() => {
           throw new Error('Didn\'t find corresponding vertex');
         }),
       )),
-      O.getOrElseW(() => {
-        throw new Error('Didn\'t find corresponding vertex');
-      }),
-    ), emptyMatrix);
+    );
+  };
+
+  type GetAdjacencyList = (graph: Graph) => AdjacencyList;
+  export const getAdjacencyList: GetAdjacencyList = (graph) => {
+    const vertices = getVertices(graph);
+    const edges = getEdges(graph);
+    const emptyList = Object.fromEntries(vertices.map<[Vertex, [Vertex, Weight][]]>((vertex) => [vertex, []]));
+
+    return F.pipe(
+      edges,
+      A.reduce(emptyList, (adjacencyListSoFar, [start, end, weight]) => F.pipe(
+        adjacencyListSoFar,
+        R.modifyAt(start, (currentEdgeAdjacentVerticesWithWeights) => F.pipe(
+          currentEdgeAdjacentVerticesWithWeights,
+          A.append<[Vertex, Weight]>([end, weight]),
+        )),
+        O.getOrElseW(() => {
+          throw new Error('Didn\'t find corresponding vertex');
+        }),
+      )),
+    );
   };
 }
