@@ -1,4 +1,5 @@
-import { Edge, Vertex } from './Edge';
+import * as edge from './Edge';
+import * as vertex from './Vertex';
 
 /**
  * Sequence of edges which joins a sequence of vertices.
@@ -6,12 +7,14 @@ import { Edge, Vertex } from './Edge';
  * - Every edge should be connected to the next one with vertex
  * - Edges are not distinct. Meaning, the same edge can be included multiple times.
  */
-export type Walk<S extends Vertex, E extends Vertex> = [singleEdge: Edge<S, E>] | [start: Edge<S>, ...rest: Edge[], end: Edge<Vertex, E>];
+export type Walk<S extends vertex.Vertex = vertex.Vertex, E extends vertex.Vertex = vertex.Vertex> =
+  | [singleEdge: edge.Edge<S, E>]
+  | [start: edge.Edge<S>, ...rest: edge.Edge[], end: edge.Edge<vertex.Vertex, E>];
 /**
   * A walk which starts and ends on the same vertex.
   */
-export type ClosedWalk<S extends Vertex> = [Edge<S>, ...Edge[], Edge<Vertex, S>];
-export const isClosed = <S extends Vertex>(walk: Walk<S, Vertex>): walk is ClosedWalk<S> => {
+export type ClosedWalk<S extends vertex.Vertex> = [edge.Edge<S>, ...edge.Edge[], edge.Edge<vertex.Vertex, S>];
+export const isClosed = <S extends vertex.Vertex>(walk: Walk<S, vertex.Vertex>): walk is ClosedWalk<S> => {
   const [firstEdgeStart] = walk[0];
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [lastEdgeStart, lastEdgeEnd] = walk[walk.length - 1];
@@ -21,8 +24,8 @@ export const isClosed = <S extends Vertex>(walk: Walk<S, Vertex>): walk is Close
 /**
   * A walk which starts and ends on different vertices.
   */
-export type OpenWalk<S extends Vertex, E extends Vertex> = [Edge<S>, ...Edge[], Edge<Vertex, E>];
-export const isOpen = <S extends Vertex, E extends Vertex>(walk: Walk<S, E>): walk is OpenWalk<S, E> => {
+export type OpenWalk<S extends vertex.Vertex, E extends vertex.Vertex> = [edge.Edge<S>, ...edge.Edge[], edge.Edge<vertex.Vertex, E>];
+export const isOpen = <S extends vertex.Vertex, E extends vertex.Vertex>(walk: Walk<S, E>): walk is OpenWalk<S, E> => {
   const [firstEdgeStart] = walk[0];
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [lastEdgeStart, lastEdgeEnd] = walk[walk.length - 1];

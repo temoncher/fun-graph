@@ -1,4 +1,4 @@
-import { edge, graph } from '@/index';
+import { vertex, edge, graph } from '@/index';
 
 describe('Graph', () => {
   test('empty', () => {
@@ -15,7 +15,7 @@ describe('Graph', () => {
     const graphFromVertices = graph.fromVertices(['A', 'B', 'C']);
 
     // assert
-    const expectedVertices: edge.Vertex[] = ['A', 'B', 'C'];
+    const expectedVertices: vertex.Vertex[] = ['A', 'B', 'C'];
     const expectedEdges: edge.Edge[] = [];
 
     expect(graph.getVertices(graphFromVertices)).toEqual(expectedVertices);
@@ -27,7 +27,7 @@ describe('Graph', () => {
     const graphFromEdges = graph.fromEdges([['A', 'B'], ['C', 'D']]);
 
     // assert
-    const expectedVertices: edge.Vertex[] = ['A', 'B', 'C', 'D'];
+    const expectedVertices: vertex.Vertex[] = ['A', 'B', 'C', 'D'];
     const expectedEdges: edge.Edge[] = [['A', 'B'], ['C', 'D']];
 
     expect(graph.getVertices(graphFromEdges)).toEqual(expectedVertices);
@@ -55,7 +55,7 @@ describe('Graph', () => {
     });
 
     // assert
-    const expectedVertices: edge.Vertex[] = ['A', 'B', 'C'];
+    const expectedVertices: vertex.Vertex[] = ['A', 'B', 'C'];
     const expectedEdges: edge.Edge[] = [
       ['A', 'B'],
       ['A', 'C'],
@@ -76,7 +76,7 @@ describe('Graph', () => {
     });
 
     // assert
-    const expectedVertices: edge.Vertex[] = ['A', 'B', 'C'];
+    const expectedVertices: vertex.Vertex[] = ['A', 'B', 'C'];
     const expectedEdges: edge.Edge[] = [
       ['A', 'B'],
       ['A', 'C'],
@@ -215,8 +215,51 @@ describe('Graph', () => {
     const bDegree = graph.getDegree('B')(graphFromEdges);
 
     // assert
-    const expectedDegree: edge.Degree<'B'> = 6;
+    const expectedDegree: graph.VertexDegree<'B'> = 6;
 
     expect(bDegree).toEqual(expectedDegree);
+  });
+
+  test('is a walk for this graph', () => {
+    // arrange
+    const graphFromEdges = graph.fromEdges([
+      ['A', 'B'],
+      ['B', 'C'],
+      ['B', 'B'],
+      ['B', 'B'],
+      ['D', 'E'],
+    ]);
+    const walkToCheck: edge.Edge[] = [
+      ['A', 'B'],
+      ['B', 'C'],
+    ];
+
+    // act
+    const walkToCheckIsWalkForTheGraph = graph.isWalk(graphFromEdges)(walkToCheck);
+
+    // assert
+    expect(walkToCheckIsWalkForTheGraph).toBe(true);
+  });
+
+  test('is not a walk for this graph', () => {
+    // arrange
+    const graphFromEdges = graph.fromEdges([
+      ['A', 'B'],
+      ['B', 'C'],
+      ['B', 'B'],
+      ['B', 'B'],
+      ['D', 'E'],
+    ]);
+    const walkToCheck: edge.Edge[] = [
+      ['A', 'B'],
+      ['B', 'C'],
+      ['C', 'D'],
+    ];
+
+    // act
+    const walkToCheckIsWalkForTheGraph = graph.isWalk(graphFromEdges)(walkToCheck);
+
+    // assert
+    expect(walkToCheckIsWalkForTheGraph).toBe(false);
   });
 });

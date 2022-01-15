@@ -1,19 +1,14 @@
 import {
   array,
   option,
-  ord,
   record,
-  string,
 } from 'fp-ts';
 import { pipe, flow } from 'fp-ts/function';
 import { lens } from 'monocle-ts';
 
-import {
-  Vertex,
-  Edge,
-  eqByStartEndPair,
-  Degree,
-} from './Edge';
+import * as edge from './Edge';
+import * as vertex from './Vertex';
+import * as walk from './Walk';
 
 // ESLint goes crazy on this line for some reason
 // eslint-disable-next-line no-shadow
@@ -22,13 +17,13 @@ export enum AdjacencyType {
   ADJACENT = 1,
 }
 
-export type Path = [Vertex, ...Vertex[], Vertex];
-export type AdjacencyMatrix = Record<Vertex, Record<Vertex, AdjacencyType>>;
-export type AdjacencyList = Record<Vertex, Vertex[]>;
+export type Path = [vertex.Vertex, ...vertex.Vertex[], vertex.Vertex];
+export type AdjacencyMatrix = Record<vertex.Vertex, Record<vertex.Vertex, AdjacencyType>>;
+export type AdjacencyList = Record<vertex.Vertex, vertex.Vertex[]>;
 export type Graph = {
   _tag: 'Graph';
-  _vertices: Vertex[];
-  _edges: Edge[];
+  _vertices: vertex.Vertex[];
+  _edges: edge.Edge[];
 };
 
 type Empty = () => Graph;
@@ -39,43 +34,31 @@ export const empty: Empty = () => ({
   _edges: [],
 });
 
-// eslint-disable-next-line @typescript-eslint/naming-convention
-const _sortByValue = array.sort(string.Ord);
-// eslint-disable-next-line @typescript-eslint/naming-convention
-const _sortByStartThenEnd = array.sort(
-  ord.fromCompare<Edge>(([start1, end1], [start2, end2]) => {
-    const startOrdering = string.Ord.compare(start1, start2);
-
-    if (startOrdering !== 0) return startOrdering;
-
-    const endOrdering = string.Ord.compare(end1, end2);
-
-    return endOrdering;
-  }),
-);
-
-type FromVertices = (vertices: Vertex[]) => Graph;
+type FromVertices = (vertices: vertex.Vertex[]) => Graph;
 
 export const fromVertices: FromVertices = (vertices) => ({
   _tag: 'Graph',
-  _vertices: _sortByValue(vertices),
+  _vertices: pipe(
+    vertices,
+    array.sort(vertex.Ord),
+  ),
   _edges: [],
 });
 
-type FromEdges = (edges: Edge[]) => Graph;
+type FromEdges = (edges: edge.Edge[]) => Graph;
 
-export const fromEdges: FromEdges = (edges) => {
+export const fromEdges: FromEdges = (edges: edge.Edge[]) => {
   const sortedVertices = pipe(
     edges,
     array.chain(([start, end]) => [start, end]),
-    array.uniq(string.Eq),
-    _sortByValue,
+    array.uniq(vertex.Eq),
+    array.sort(vertex.Ord),
   );
 
   return {
     _tag: 'Graph',
     _vertices: sortedVertices,
-    _edges: _sortByStartThenEnd(edges),
+    _edges: array.sort(edge.Ord)(edges),
   };
 };
 
@@ -85,20 +68,20 @@ export const fromAdjacencyMatrix: FromAdjacencyMatrix = (adjacencyMatrix) => {
   const sortedVertices = pipe(
     adjacencyMatrix,
     Object.keys,
-    _sortByValue,
+    array.sort(vertex.Ord),
   );
 
-  const sortedEdges: Edge[] = pipe(
+  const sortedEdges: edge.Edge[] = pipe(
     Object.entries(adjacencyMatrix),
     array.chain(([start, edgesToAdjacencyTypeMap]) => pipe(
       Object.entries(edgesToAdjacencyTypeMap),
-      array.reduce<[Vertex, AdjacencyType], Edge[]>([], (edgesSoFar, [end, adjacencyType]) => {
+      array.reduce<[vertex.Vertex, AdjacencyType], edge.Edge[]>([], (edgesSoFar, [end, adjacencyType]) => {
         if (adjacencyType === AdjacencyType.ADJACENT) return [...edgesSoFar, [start, end]];
 
         return edgesSoFar;
       }),
     )),
-    _sortByStartThenEnd,
+    array.sort(edge.Ord),
   );
 
   return {
@@ -114,15 +97,15 @@ export const fromAdjacencyList: FromAdjacencyList = (adjacencyList) => {
   const sortedVertices = pipe(
     adjacencyList,
     Object.keys,
-    _sortByValue,
+    array.sort(vertex.Ord),
   );
   const sortedEdges = pipe(
     Object.entries(adjacencyList),
     array.chain(([start, ends]) => pipe(
       ends,
-      array.map((end) => [start, end] as Edge),
+      array.map((end) => [start, end] as edge.Edge),
     )),
-    _sortByStartThenEnd,
+    array.sort(edge.Ord),
   );
 
   return {
@@ -144,28 +127,28 @@ const _edgesLens = pipe(
   lens.prop('_edges'),
 );
 
-type GetVertices = (graph: Graph) => Vertex[];
+type GetVertices = (graph: Graph) => vertex.Vertex[];
 
 export const getVertices: GetVertices = _verticesLens.get;
 
-type GetEdges = (graph: Graph) => Edge[];
+type GetEdges = (graph: Graph) => edge.Edge[];
 
 export const getEdges: GetEdges = _edgesLens.get;
 
 type GetAdjacencyMatrix = (graph: Graph) => AdjacencyMatrix;
 
 export const getAdjacencyMatrix: GetAdjacencyMatrix = (graph) => {
-  const vertices = getVertices(graph);
-  const edges = getEdges(graph);
+  const graphVertices = getVertices(graph);
+  const graphEdges = getEdges(graph);
 
-  const emptyMatrix: AdjacencyMatrix = Object.fromEntries(vertices.map((outerVertex) => {
-    const matrixRow = vertices.map((innerVertex) => [innerVertex, AdjacencyType.NOT_ADJACENT] as const);
+  const emptyMatrix: AdjacencyMatrix = Object.fromEntries(graphVertices.map((outerVertex) => {
+    const matrixRow = graphVertices.map((innerVertex) => [innerVertex, AdjacencyType.NOT_ADJACENT] as const);
 
     return [outerVertex, Object.fromEntries(matrixRow)] as const;
   }));
 
   return pipe(
-    edges,
+    graphEdges,
     array.reduce(emptyMatrix, (matrixSoFar, [start, end]) => pipe(
       matrixSoFar,
       record.modifyAt(start, flow(
@@ -184,13 +167,13 @@ export const getAdjacencyMatrix: GetAdjacencyMatrix = (graph) => {
 type GetAdjacencyList = (graph: Graph) => AdjacencyList;
 
 export const getAdjacencyList: GetAdjacencyList = (graph) => {
-  const vertices = getVertices(graph);
-  const edges = getEdges(graph);
+  const graphVertices = getVertices(graph);
+  const graphEdges = getEdges(graph);
 
-  const emptyList: AdjacencyList = Object.fromEntries(vertices.map((vertex) => [vertex, []]));
+  const emptyList: AdjacencyList = Object.fromEntries(graphVertices.map((graphVertex) => [graphVertex, []]));
 
   return pipe(
-    edges,
+    graphEdges,
     array.reduce(emptyList, (adjacencyListSoFar, [start, end]) => pipe(
       adjacencyListSoFar,
       record.modifyAt(start, (currentEdgeAdjacentVertices) => [...currentEdgeAdjacentVertices, end]),
@@ -201,22 +184,21 @@ export const getAdjacencyList: GetAdjacencyList = (graph) => {
   );
 };
 
-export type Neighborhood = Vertex[];
+export type Neighborhood = vertex.Vertex[];
 
-type GetNeighborhood = (vertex: Vertex) => (graph: Graph) => Neighborhood;
+type GetNeighborhood = (vertexToFindNeighborsFor: vertex.Vertex) => (graph: Graph) => Neighborhood;
 
 export const getClosedNeighborhood: GetNeighborhood = (vertexToFindNeighborsFor) => (graph) => {
   const edges = getEdges(graph);
-  const emptyVertexList: Vertex[] = [];
+  const emptyVertexList: vertex.Vertex[] = [];
 
   return pipe(
     edges,
-    array.uniq(eqByStartEndPair),
+    array.uniq(edge.Eq),
     array.reduce(emptyVertexList, (listOfVerticiesSoFar, [start, end]) => {
-      // TODO: vertex.Eq?
-      if (start === vertexToFindNeighborsFor) return [...listOfVerticiesSoFar, end];
+      if (vertex.Eq.equals(start, vertexToFindNeighborsFor)) return [...listOfVerticiesSoFar, end];
 
-      if (end === vertexToFindNeighborsFor) return [...listOfVerticiesSoFar, start];
+      if (vertex.Eq.equals(end, vertexToFindNeighborsFor)) return [...listOfVerticiesSoFar, start];
 
       return listOfVerticiesSoFar;
     }),
@@ -226,7 +208,7 @@ export const getClosedNeighborhood: GetNeighborhood = (vertexToFindNeighborsFor)
 export const getOpenNeighborhood: GetNeighborhood = (vertexToFindNeighborsFor) => (graph) => {
   const neighbors = getClosedNeighborhood(vertexToFindNeighborsFor)(graph);
 
-  return neighbors.filter((neighbor) => neighbor !== vertexToFindNeighborsFor);
+  return neighbors.filter((neighbor) => !vertex.Eq.equals(neighbor, vertexToFindNeighborsFor));
 };
 
 /**
@@ -234,7 +216,12 @@ export const getOpenNeighborhood: GetNeighborhood = (vertexToFindNeighborsFor) =
  */
 export const getNeighborhood = getOpenNeighborhood;
 
-type GetDegree = <V extends Vertex>(vertex: V) => (graph: Graph) => Degree<V>;
+/**
+ * Number of edges that are incident to the vertex.
+ */
+export type VertexDegree<V extends vertex.Vertex> = number;
+
+type GetDegree = <V extends vertex.Vertex>(vertexToFindDegreeFor: V) => (graph: Graph) => VertexDegree<V>;
 
 export const getDegree: GetDegree = (vertexToCalculateDegreeFor) => (graph) => {
   const edges = getEdges(graph);
@@ -247,4 +234,27 @@ export const getDegree: GetDegree = (vertexToCalculateDegreeFor) => (graph) => {
       return degreeSoFar + degreeToAdd;
     }),
   );
+};
+
+type IsWalk = (graph: Graph) => (edgesToCheck: edge.Edge[]) => edgesToCheck is walk.Walk;
+
+export const isWalk: IsWalk = (graph) => (edgesToCheck: edge.Edge[]): edgesToCheck is walk.Walk => {
+  const graphEdges = getEdges(graph);
+  const [firstEdgeToCheck, ...restEdges] = edgesToCheck;
+
+  const [isWalkResult, lastEdge] = restEdges.reduce<[boolean, edge.Edge]>(([isWalkSoFar, previousEdge], currentEdge) => {
+    if (!isWalkSoFar) return [false, currentEdge];
+
+    const isPreviousEdgeConnectedToCurrent = previousEdge[1] === currentEdge[0];
+
+    if (!isPreviousEdgeConnectedToCurrent) return [false, currentEdge];
+
+    const isEdgePresentInTheGraph = !!graphEdges.find((graphEdge) => edge.Eq.equals(currentEdge, graphEdge));
+
+    if (!isEdgePresentInTheGraph) return [false, currentEdge];
+
+    return [true, currentEdge];
+  }, [true, firstEdgeToCheck]);
+
+  return isWalkResult;
 };
