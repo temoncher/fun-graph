@@ -216,8 +216,13 @@ export const getClosedNeighborhood: GetNeighbors = (vertexToFindNeighborsFor) =>
   );
 };
 
-export const getNeighborhood: GetNeighbors = (vertexToFindNeighborsFor) => (graph) => {
+export const getOpenNeighborhood: GetNeighbors = (vertexToFindNeighborsFor) => (graph) => {
   const neighbors = getClosedNeighborhood(vertexToFindNeighborsFor)(graph);
 
   return neighbors.filter((neighbor) => neighbor !== vertexToFindNeighborsFor);
 };
+
+/**
+ * Alias for `getOpenNeighborhood`
+ */
+export const getNeighborhood = getOpenNeighborhood;

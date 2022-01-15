@@ -166,7 +166,7 @@ describe('Graph', () => {
     expect(bNeighbors).toEqual(['A', 'B', 'C']);
   });
 
-  test('get neighborhood', () => {
+  test('get open neighborhood', () => {
     // arrange
     const graphFromEdges = graph.fromEdges([
       ['A', 'B', 1],
@@ -176,7 +176,7 @@ describe('Graph', () => {
     ]);
 
     // act
-    const bNeighbors = graph.getNeighborhood('B')(graphFromEdges);
+    const bNeighbors = graph.getOpenNeighborhood('B')(graphFromEdges);
 
     // assert
     expect(bNeighbors).toEqual(['A', 'C']);
