@@ -1,6 +1,4 @@
-import { option } from 'fp-ts';
-
-import { graph } from '@/index';
+import { edge, graph } from '@/index';
 
 describe('Graph', () => {
   test('empty', () => {
@@ -17,186 +15,208 @@ describe('Graph', () => {
     const graphFromVertices = graph.fromVertices(['A', 'B', 'C']);
 
     // assert
-    expect(graph.getVertices(graphFromVertices)).toEqual(['A', 'B', 'C']);
-    expect(graph.getEdges(graphFromVertices)).toEqual([]);
+    const expectedVertices: edge.Vertex[] = ['A', 'B', 'C'];
+    const expectedEdges: edge.Edge[] = [];
+
+    expect(graph.getVertices(graphFromVertices)).toEqual(expectedVertices);
+    expect(graph.getEdges(graphFromVertices)).toEqual(expectedEdges);
   });
 
   test('from edges', () => {
     // act
-    const graphFromEdges = graph.fromEdges([['A', 'B', 0], ['C', 'D', 0]]);
+    const graphFromEdges = graph.fromEdges([['A', 'B'], ['C', 'D']]);
 
     // assert
-    expect(graph.getVertices(graphFromEdges)).toEqual(['A', 'B', 'C', 'D']);
-    expect(graph.getEdges(graphFromEdges)).toEqual([['A', 'B', 0], ['C', 'D', 0]]);
+    const expectedVertices: edge.Vertex[] = ['A', 'B', 'C', 'D'];
+    const expectedEdges: edge.Edge[] = [['A', 'B'], ['C', 'D']];
+
+    expect(graph.getVertices(graphFromEdges)).toEqual(expectedVertices);
+    expect(graph.getEdges(graphFromEdges)).toEqual(expectedEdges);
   });
 
   test('from adjacency matrix', () => {
     // act
     const graphFromAdjacencyMatrix = graph.fromAdjacencyMatrix({
       A: {
-        A: option.none,
-        B: option.some(1),
-        C: option.some(2),
+        A: graph.AdjacencyType.NOT_ADJACENT,
+        B: graph.AdjacencyType.ADJACENT,
+        C: graph.AdjacencyType.ADJACENT,
       },
       B: {
-        A: option.some(2),
-        B: option.none,
-        C: option.some(1),
+        A: graph.AdjacencyType.ADJACENT,
+        B: graph.AdjacencyType.NOT_ADJACENT,
+        C: graph.AdjacencyType.ADJACENT,
       },
       C: {
-        A: option.none,
-        B: option.none,
-        C: option.none,
+        A: graph.AdjacencyType.NOT_ADJACENT,
+        B: graph.AdjacencyType.NOT_ADJACENT,
+        C: graph.AdjacencyType.NOT_ADJACENT,
       },
     });
 
     // assert
-    expect(graph.getVertices(graphFromAdjacencyMatrix)).toEqual(['A', 'B', 'C']);
-    expect(graph.getEdges(graphFromAdjacencyMatrix)).toEqual([
-      ['A', 'B', 1],
-      ['A', 'C', 2],
-      ['B', 'A', 2],
-      ['B', 'C', 1],
-    ]);
+    const expectedVertices: edge.Vertex[] = ['A', 'B', 'C'];
+    const expectedEdges: edge.Edge[] = [
+      ['A', 'B'],
+      ['A', 'C'],
+      ['B', 'A'],
+      ['B', 'C'],
+    ];
+
+    expect(graph.getVertices(graphFromAdjacencyMatrix)).toEqual(expectedVertices);
+    expect(graph.getEdges(graphFromAdjacencyMatrix)).toEqual(expectedEdges);
   });
 
   test('from adjacency list', () => {
     // act
     const graphFromAdjacencyList = graph.fromAdjacencyList({
-      A: [['B', 1], ['C', 2]],
-      B: [['A', 2], ['C', 1]],
+      A: ['B', 'C'],
+      B: ['A', 'C'],
       C: [],
     });
 
     // assert
-    expect(graph.getVertices(graphFromAdjacencyList)).toEqual(['A', 'B', 'C']);
-    expect(graph.getEdges(graphFromAdjacencyList)).toEqual([
-      ['A', 'B', 1],
-      ['A', 'C', 2],
-      ['B', 'A', 2],
-      ['B', 'C', 1],
-    ]);
+    const expectedVertices: edge.Vertex[] = ['A', 'B', 'C'];
+    const expectedEdges: edge.Edge[] = [
+      ['A', 'B'],
+      ['A', 'C'],
+      ['B', 'A'],
+      ['B', 'C'],
+    ];
+
+    expect(graph.getVertices(graphFromAdjacencyList)).toEqual(expectedVertices);
+    expect(graph.getEdges(graphFromAdjacencyList)).toEqual(expectedEdges);
   });
 
   test('get adjacency matrix', () => {
     // arrange
     const graphFromEdges = graph.fromEdges([
-      ['A', 'B', 1],
-      ['B', 'C', 2],
-      ['D', 'E', 2],
+      ['A', 'B'],
+      ['B', 'C'],
+      ['D', 'E'],
     ]);
 
     // act
     const adjacencyMatrix = graph.getAdjacencyMatrix(graphFromEdges);
 
     // assert
-    expect(adjacencyMatrix).toEqual({
+    const expectedAdjacencyMatrix: graph.AdjacencyMatrix = {
       A: {
-        A: option.none,
-        B: option.some(1),
-        C: option.none,
-        D: option.none,
-        E: option.none,
+        A: graph.AdjacencyType.NOT_ADJACENT,
+        B: graph.AdjacencyType.ADJACENT,
+        C: graph.AdjacencyType.NOT_ADJACENT,
+        D: graph.AdjacencyType.NOT_ADJACENT,
+        E: graph.AdjacencyType.NOT_ADJACENT,
       },
       B: {
-        A: option.none,
-        B: option.none,
-        C: option.some(2),
-        D: option.none,
-        E: option.none,
+        A: graph.AdjacencyType.NOT_ADJACENT,
+        B: graph.AdjacencyType.NOT_ADJACENT,
+        C: graph.AdjacencyType.ADJACENT,
+        D: graph.AdjacencyType.NOT_ADJACENT,
+        E: graph.AdjacencyType.NOT_ADJACENT,
       },
       C: {
-        A: option.none,
-        B: option.none,
-        C: option.none,
-        D: option.none,
-        E: option.none,
+        A: graph.AdjacencyType.NOT_ADJACENT,
+        B: graph.AdjacencyType.NOT_ADJACENT,
+        C: graph.AdjacencyType.NOT_ADJACENT,
+        D: graph.AdjacencyType.NOT_ADJACENT,
+        E: graph.AdjacencyType.NOT_ADJACENT,
       },
       D: {
-        A: option.none,
-        B: option.none,
-        C: option.none,
-        D: option.none,
-        E: option.some(2),
+        A: graph.AdjacencyType.NOT_ADJACENT,
+        B: graph.AdjacencyType.NOT_ADJACENT,
+        C: graph.AdjacencyType.NOT_ADJACENT,
+        D: graph.AdjacencyType.NOT_ADJACENT,
+        E: graph.AdjacencyType.ADJACENT,
       },
       E: {
-        A: option.none,
-        B: option.none,
-        C: option.none,
-        D: option.none,
-        E: option.none,
+        A: graph.AdjacencyType.NOT_ADJACENT,
+        B: graph.AdjacencyType.NOT_ADJACENT,
+        C: graph.AdjacencyType.NOT_ADJACENT,
+        D: graph.AdjacencyType.NOT_ADJACENT,
+        E: graph.AdjacencyType.NOT_ADJACENT,
       },
-    });
+    };
+
+    expect(adjacencyMatrix).toEqual(expectedAdjacencyMatrix);
   });
 
   test('get adjacency list', () => {
     // arrange
     const graphFromEdges = graph.fromEdges([
-      ['A', 'B', 1],
-      ['B', 'C', 2],
-      ['D', 'E', 2],
+      ['A', 'B'],
+      ['B', 'C'],
+      ['D', 'E'],
     ]);
 
     // act
     const adjacencyList = graph.getAdjacencyList(graphFromEdges);
 
     // assert
-    expect(adjacencyList).toEqual({
-      A: [['B', 1]],
-      B: [['C', 2]],
+    const expectedAdjacencyList: graph.AdjacencyList = {
+      A: ['B'],
+      B: ['C'],
       C: [],
-      D: [['E', 2]],
+      D: ['E'],
       E: [],
-    });
+    };
+
+    expect(adjacencyList).toEqual(expectedAdjacencyList);
   });
 
   test('get closed neighborhood', () => {
     // arrange
     const graphFromEdges = graph.fromEdges([
-      ['A', 'B', 1],
-      ['B', 'C', 2],
-      ['B', 'B', 4],
-      ['D', 'E', 2],
+      ['A', 'B'],
+      ['B', 'C'],
+      ['B', 'B'],
+      ['D', 'E'],
     ]);
 
     // act
-    const bNeighbors = graph.getClosedNeighborhood('B')(graphFromEdges);
+    const bNeighborhood = graph.getClosedNeighborhood('B')(graphFromEdges);
 
     // assert
-    expect(bNeighbors).toEqual(['A', 'B', 'C']);
+    const expectedNeighborhood: graph.Neighborhood = ['A', 'B', 'C'];
+
+    expect(bNeighborhood).toEqual(expectedNeighborhood);
   });
 
   test('get open neighborhood', () => {
-    // arrange
+    // arra
     const graphFromEdges = graph.fromEdges([
-      ['A', 'B', 1],
-      ['B', 'C', 2],
-      ['B', 'B', 4],
-      ['B', 'B', 3],
-      ['D', 'E', 2],
+      ['A', 'B'],
+      ['B', 'C'],
+      ['B', 'B'],
+      ['B', 'B'],
+      ['D', 'E'],
     ]);
 
     // act
-    const bNeighbors = graph.getOpenNeighborhood('B')(graphFromEdges);
+    const bNeighborhood = graph.getOpenNeighborhood('B')(graphFromEdges);
 
     // assert
-    expect(bNeighbors).toEqual(['A', 'C']);
+    const expectedNeighborhood: graph.Neighborhood = ['A', 'C'];
+
+    expect(bNeighborhood).toEqual(expectedNeighborhood);
   });
 
   test('get degree', () => {
     // arrange
     const graphFromEdges = graph.fromEdges([
-      ['A', 'B', 1],
-      ['B', 'C', 2],
-      ['B', 'B', 4],
-      ['B', 'B', 3],
-      ['D', 'E', 2],
+      ['A', 'B'],
+      ['B', 'C'],
+      ['B', 'B'],
+      ['B', 'B'],
+      ['D', 'E'],
     ]);
 
     // act
     const bDegree = graph.getDegree('B')(graphFromEdges);
 
     // assert
-    expect(bDegree).toEqual(6);
+    const expectedDegree: edge.Degree<'B'> = 6;
+
+    expect(bDegree).toEqual(expectedDegree);
   });
 });

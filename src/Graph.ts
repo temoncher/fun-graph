@@ -3,21 +3,28 @@ import {
   option,
   ord,
   record,
-  number,
   string,
-  eq,
 } from 'fp-ts';
 import { pipe, flow } from 'fp-ts/function';
 import { lens } from 'monocle-ts';
 
-export type Vertex = string;
-export type Weight = number;
-export type Edge = [start: Vertex, end: Vertex, weight: Weight];
-const eqByStartEndPair: eq.Eq<Edge> = {
-  equals: ([start1, end1], [start2, end2]) => start1 === start2 && end1 === end2,
-};
-export type AdjacencyMatrix = Record<Vertex, Record<Vertex, option.Option<Weight>>>;
-export type AdjacencyList = Record<Vertex, [end: Vertex, weight: Weight][]>;
+import {
+  Vertex,
+  Edge,
+  eqByStartEndPair,
+  Degree,
+} from './Edge';
+
+// ESLint goes crazy on this line for some reason
+// eslint-disable-next-line no-shadow
+export enum AdjacencyType {
+  NOT_ADJACENT = 0,
+  ADJACENT = 1,
+}
+
+export type Path = [Vertex, ...Vertex[], Vertex];
+export type AdjacencyMatrix = Record<Vertex, Record<Vertex, AdjacencyType>>;
+export type AdjacencyList = Record<Vertex, Vertex[]>;
 export type Graph = {
   _tag: 'Graph';
   _vertices: Vertex[];
@@ -35,19 +42,15 @@ export const empty: Empty = () => ({
 // eslint-disable-next-line @typescript-eslint/naming-convention
 const _sortByValue = array.sort(string.Ord);
 // eslint-disable-next-line @typescript-eslint/naming-convention
-const _sortByStartEndThenWeight = array.sort(
-  ord.fromCompare<Edge>(([start1, end1, weight1], [start2, end2, weight2]) => {
+const _sortByStartThenEnd = array.sort(
+  ord.fromCompare<Edge>(([start1, end1], [start2, end2]) => {
     const startOrdering = string.Ord.compare(start1, start2);
 
     if (startOrdering !== 0) return startOrdering;
 
     const endOrdering = string.Ord.compare(end1, end2);
 
-    if (endOrdering !== 0) return endOrdering;
-
-    const weightOrdering = number.Ord.compare(weight1, weight2);
-
-    return weightOrdering;
+    return endOrdering;
   }),
 );
 
@@ -64,7 +67,7 @@ type FromEdges = (edges: Edge[]) => Graph;
 export const fromEdges: FromEdges = (edges) => {
   const sortedVertices = pipe(
     edges,
-    array.chain(([start, end, weight]) => [start, end]),
+    array.chain(([start, end]) => [start, end]),
     array.uniq(string.Eq),
     _sortByValue,
   );
@@ -72,7 +75,7 @@ export const fromEdges: FromEdges = (edges) => {
   return {
     _tag: 'Graph',
     _vertices: sortedVertices,
-    _edges: _sortByStartEndThenWeight(edges),
+    _edges: _sortByStartThenEnd(edges),
   };
 };
 
@@ -87,16 +90,15 @@ export const fromAdjacencyMatrix: FromAdjacencyMatrix = (adjacencyMatrix) => {
 
   const sortedEdges: Edge[] = pipe(
     Object.entries(adjacencyMatrix),
-    array.chain(([start, edgesToWeightsMap]) => pipe(
-      Object.entries(edgesToWeightsMap),
-      array.map<[string, option.Option<number>], option.Option<Edge>>(([end, weightOption]) => pipe(
-        weightOption,
-        option.map((weight) => [start, end, weight]),
-      )),
-      array.filter(option.isSome),
-      array.map((edgeSome) => edgeSome.value),
+    array.chain(([start, edgesToAdjacencyTypeMap]) => pipe(
+      Object.entries(edgesToAdjacencyTypeMap),
+      array.reduce<[Vertex, AdjacencyType], Edge[]>([], (edgesSoFar, [end, adjacencyType]) => {
+        if (adjacencyType === AdjacencyType.ADJACENT) return [...edgesSoFar, [start, end]];
+
+        return edgesSoFar;
+      }),
     )),
-    _sortByStartEndThenWeight,
+    _sortByStartThenEnd,
   );
 
   return {
@@ -116,11 +118,11 @@ export const fromAdjacencyList: FromAdjacencyList = (adjacencyList) => {
   );
   const sortedEdges = pipe(
     Object.entries(adjacencyList),
-    array.chain(([start, endsAndWeights]) => pipe(
-      endsAndWeights,
-      array.map<[string, number], Edge>(([end, weight]) => [start, end, weight]),
+    array.chain(([start, ends]) => pipe(
+      ends,
+      array.map((end) => [start, end] as Edge),
     )),
-    _sortByStartEndThenWeight,
+    _sortByStartThenEnd,
   );
 
   return {
@@ -155,18 +157,19 @@ type GetAdjacencyMatrix = (graph: Graph) => AdjacencyMatrix;
 export const getAdjacencyMatrix: GetAdjacencyMatrix = (graph) => {
   const vertices = getVertices(graph);
   const edges = getEdges(graph);
+
   const emptyMatrix: AdjacencyMatrix = Object.fromEntries(vertices.map((outerVertex) => {
-    const matrixRow = vertices.map((innerVertex) => [innerVertex, option.none] as const);
+    const matrixRow = vertices.map((innerVertex) => [innerVertex, AdjacencyType.NOT_ADJACENT] as const);
 
     return [outerVertex, Object.fromEntries(matrixRow)] as const;
   }));
 
   return pipe(
     edges,
-    array.reduce(emptyMatrix, (matrixSoFar, [start, end, weight]) => pipe(
+    array.reduce(emptyMatrix, (matrixSoFar, [start, end]) => pipe(
       matrixSoFar,
       record.modifyAt(start, flow(
-        record.updateAt(end, option.some(weight)),
+        record.updateAt(end, AdjacencyType.ADJACENT),
         option.getOrElseW(() => {
           throw new Error('Didn\'t find corresponding vertex');
         }),
@@ -183,17 +186,14 @@ type GetAdjacencyList = (graph: Graph) => AdjacencyList;
 export const getAdjacencyList: GetAdjacencyList = (graph) => {
   const vertices = getVertices(graph);
   const edges = getEdges(graph);
+
   const emptyList: AdjacencyList = Object.fromEntries(vertices.map((vertex) => [vertex, []]));
 
   return pipe(
     edges,
-    array.reduce(emptyList, (adjacencyListSoFar, [start, end, weight]) => pipe(
+    array.reduce(emptyList, (adjacencyListSoFar, [start, end]) => pipe(
       adjacencyListSoFar,
-      record.modifyAt(start, (currentEdgeAdjacentVerticesWithWeights) => pipe(
-        // can not be reduced to `flow` because array.append returns NonEmptyArray
-        currentEdgeAdjacentVerticesWithWeights,
-        array.append<[Vertex, Weight]>([end, weight]),
-      )),
+      record.modifyAt(start, (currentEdgeAdjacentVertices) => [...currentEdgeAdjacentVertices, end]),
       option.getOrElseW(() => {
         throw new Error('Didn\'t find corresponding vertex');
       }),
@@ -201,7 +201,9 @@ export const getAdjacencyList: GetAdjacencyList = (graph) => {
   );
 };
 
-type GetNeighborhood = (vertex: Vertex) => (graph: Graph) => Vertex[];
+export type Neighborhood = Vertex[];
+
+type GetNeighborhood = (vertex: Vertex) => (graph: Graph) => Neighborhood;
 
 export const getClosedNeighborhood: GetNeighborhood = (vertexToFindNeighborsFor) => (graph) => {
   const edges = getEdges(graph);
@@ -232,7 +234,7 @@ export const getOpenNeighborhood: GetNeighborhood = (vertexToFindNeighborsFor) =
  */
 export const getNeighborhood = getOpenNeighborhood;
 
-type GetDegree = (vertex: Vertex) => (graph: Graph) => number;
+type GetDegree = <V extends Vertex>(vertex: V) => (graph: Graph) => Degree<V>;
 
 export const getDegree: GetDegree = (vertexToCalculateDegreeFor) => (graph) => {
   const edges = getEdges(graph);
