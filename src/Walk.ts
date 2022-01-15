@@ -25,10 +25,4 @@ export const isClosed = <S extends vertex.Vertex>(walk: Walk<S, vertex.Vertex>):
   * A walk which starts and ends on different vertices.
   */
 export type OpenWalk<S extends vertex.Vertex, E extends vertex.Vertex> = [edge.Edge<S>, ...edge.Edge[], edge.Edge<vertex.Vertex, E>];
-export const isOpen = <S extends vertex.Vertex, E extends vertex.Vertex>(walk: Walk<S, E>): walk is OpenWalk<S, E> => {
-  const [firstEdgeStart] = walk[0];
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [lastEdgeStart, lastEdgeEnd] = walk[walk.length - 1];
-
-  return firstEdgeStart !== lastEdgeEnd;
-};
+export const isOpen = <S extends vertex.Vertex, E extends vertex.Vertex>(walk: Walk<S, E>): walk is OpenWalk<S, E> => !isClosed(walk);

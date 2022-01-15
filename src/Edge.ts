@@ -7,10 +7,10 @@ import * as vertex from './Vertex';
  */
 export type Edge<S extends vertex.Vertex = vertex.Vertex, E extends vertex.Vertex = vertex.Vertex> = [start: S, end: E];
 export const Eq = eq.fromEquals<Edge>(([start1, end1], [start2, end2]) => {
-  const isCompletelyEqual = vertex.Eq.equals(start1, start2) && vertex.Eq.equals(end1, end2);
-  const isReversed = vertex.Eq.equals(start1, end2) && vertex.Eq.equals(start2, end2);
+  const areCompletelyEqual = vertex.Eq.equals(start1, start2) && vertex.Eq.equals(end1, end2);
+  const reversed = vertex.Eq.equals(start1, end2) && vertex.Eq.equals(start2, end1);
 
-  return isCompletelyEqual || isReversed;
+  return areCompletelyEqual || reversed;
 });
 export const Ord = ord.fromCompare<Edge>((edge1, edge2) => {
   if (Eq.equals(edge1, edge2)) return 0;
