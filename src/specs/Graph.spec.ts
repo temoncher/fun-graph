@@ -150,16 +150,33 @@ describe('Graph', () => {
     });
   });
 
-  test('get neighbors', () => {
+  test('get closed neighborhood', () => {
     // arrange
     const graphFromEdges = graph.fromEdges([
       ['A', 'B', 1],
       ['B', 'C', 2],
+      ['B', 'B', 4],
       ['D', 'E', 2],
     ]);
 
     // act
-    const bNeighbors = graph.getNeighbors('B')(graphFromEdges);
+    const bNeighbors = graph.getClosedNeighborhood('B')(graphFromEdges);
+
+    // assert
+    expect(bNeighbors).toEqual(['A', 'B', 'C']);
+  });
+
+  test('get neighborhood', () => {
+    // arrange
+    const graphFromEdges = graph.fromEdges([
+      ['A', 'B', 1],
+      ['B', 'C', 2],
+      ['B', 'B', 4],
+      ['D', 'E', 2],
+    ]);
+
+    // act
+    const bNeighbors = graph.getNeighborhood('B')(graphFromEdges);
 
     // assert
     expect(bNeighbors).toEqual(['A', 'C']);

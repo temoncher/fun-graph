@@ -199,7 +199,7 @@ export const getAdjacencyList: GetAdjacencyList = (graph) => {
 
 type GetNeighbors = (vertex: Vertex) => (graph: Graph) => Vertex[];
 
-export const getNeighbors: GetNeighbors = (vertexToFindNeighborsFor) => (graph) => {
+export const getClosedNeighborhood: GetNeighbors = (vertexToFindNeighborsFor) => (graph) => {
   const edges = getEdges(graph);
   const emptyVertexList: Vertex[] = [];
 
@@ -214,4 +214,10 @@ export const getNeighbors: GetNeighbors = (vertexToFindNeighborsFor) => (graph) 
       return listOfVerticiesSoFar;
     }),
   );
+};
+
+export const getNeighborhood: GetNeighbors = (vertexToFindNeighborsFor) => (graph) => {
+  const neighbors = getClosedNeighborhood(vertexToFindNeighborsFor)(graph);
+
+  return neighbors.filter((neighbor) => neighbor !== vertexToFindNeighborsFor);
 };
