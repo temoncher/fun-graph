@@ -5,6 +5,7 @@ import {
   record,
   number,
   string,
+  eq,
 } from 'fp-ts';
 import { pipe, flow } from 'fp-ts/function';
 import { lens } from 'monocle-ts';
@@ -12,6 +13,9 @@ import { lens } from 'monocle-ts';
 export type Vertex = string;
 export type Weight = number;
 export type Edge = [start: Vertex, end: Vertex, weight: Weight];
+const eqByStartEndPair: eq.Eq<Edge> = {
+  equals: ([start1, end1], [start2, end2]) => start1 === start2 && end1 === end2,
+};
 export type AdjacencyMatrix = Record<Vertex, Record<Vertex, option.Option<Weight>>>;
 export type AdjacencyList = Record<Vertex, [end: Vertex, weight: Weight][]>;
 export type Graph = {
@@ -197,14 +201,15 @@ export const getAdjacencyList: GetAdjacencyList = (graph) => {
   );
 };
 
-type GetNeighbors = (vertex: Vertex) => (graph: Graph) => Vertex[];
+type GetNeighborhood = (vertex: Vertex) => (graph: Graph) => Vertex[];
 
-export const getClosedNeighborhood: GetNeighbors = (vertexToFindNeighborsFor) => (graph) => {
+export const getClosedNeighborhood: GetNeighborhood = (vertexToFindNeighborsFor) => (graph) => {
   const edges = getEdges(graph);
   const emptyVertexList: Vertex[] = [];
 
   return pipe(
     edges,
+    array.uniq(eqByStartEndPair),
     array.reduce(emptyVertexList, (listOfVerticiesSoFar, [start, end]) => {
       // TODO: vertex.Eq?
       if (start === vertexToFindNeighborsFor) return [...listOfVerticiesSoFar, end];
@@ -216,7 +221,7 @@ export const getClosedNeighborhood: GetNeighbors = (vertexToFindNeighborsFor) =>
   );
 };
 
-export const getOpenNeighborhood: GetNeighbors = (vertexToFindNeighborsFor) => (graph) => {
+export const getOpenNeighborhood: GetNeighborhood = (vertexToFindNeighborsFor) => (graph) => {
   const neighbors = getClosedNeighborhood(vertexToFindNeighborsFor)(graph);
 
   return neighbors.filter((neighbor) => neighbor !== vertexToFindNeighborsFor);
@@ -226,3 +231,18 @@ export const getOpenNeighborhood: GetNeighbors = (vertexToFindNeighborsFor) => (
  * Alias for `getOpenNeighborhood`
  */
 export const getNeighborhood = getOpenNeighborhood;
+
+type GetDegree = (vertex: Vertex) => (graph: Graph) => number;
+
+export const getDegree: GetDegree = (vertexToCalculateDegreeFor) => (graph) => {
+  const edges = getEdges(graph);
+
+  return pipe(
+    edges,
+    array.reduce(0, (degreeSoFar, [start, end]) => {
+      const degreeToAdd = [start, end].filter((startOrEndVertex) => startOrEndVertex === vertexToCalculateDegreeFor).length;
+
+      return degreeSoFar + degreeToAdd;
+    }),
+  );
+};

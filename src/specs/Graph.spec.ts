@@ -172,6 +172,7 @@ describe('Graph', () => {
       ['A', 'B', 1],
       ['B', 'C', 2],
       ['B', 'B', 4],
+      ['B', 'B', 3],
       ['D', 'E', 2],
     ]);
 
@@ -180,5 +181,22 @@ describe('Graph', () => {
 
     // assert
     expect(bNeighbors).toEqual(['A', 'C']);
+  });
+
+  test('get degree', () => {
+    // arrange
+    const graphFromEdges = graph.fromEdges([
+      ['A', 'B', 1],
+      ['B', 'C', 2],
+      ['B', 'B', 4],
+      ['B', 'B', 3],
+      ['D', 'E', 2],
+    ]);
+
+    // act
+    const bDegree = graph.getDegree('B')(graphFromEdges);
+
+    // assert
+    expect(bDegree).toEqual(6);
   });
 });
