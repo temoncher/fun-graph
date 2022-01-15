@@ -1,1 +1,1 @@
-export * from './Graph';
+export * as graph from './Graph';
