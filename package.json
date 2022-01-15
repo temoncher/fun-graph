@@ -4,7 +4,7 @@
   "description": "",
   "main": "src/index.ts",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "jest",
     "depgraph": "node_modules/.bin/depcruise --ts-config tsconfig.json --ts-pre-compilation-deps --exclude \"^node_modules\" --output-type dot src/index.ts | dot -T svg > dependency-graph.svg"
   },
   "author": "temoncher@yandex.ru",

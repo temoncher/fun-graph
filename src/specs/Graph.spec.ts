@@ -149,4 +149,19 @@ describe('Graph', () => {
       E: [],
     });
   });
+
+  test('get neighbors', () => {
+    // arrange
+    const graphFromEdges = graph.fromEdges([
+      ['A', 'B', 1],
+      ['B', 'C', 2],
+      ['D', 'E', 2],
+    ]);
+
+    // act
+    const bNeighbors = graph.getNeighbors('B')(graphFromEdges);
+
+    // assert
+    expect(bNeighbors).toEqual(['A', 'C']);
+  });
 });

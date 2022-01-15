@@ -196,3 +196,22 @@ export const getAdjacencyList: GetAdjacencyList = (graph) => {
     )),
   );
 };
+
+type GetNeighbors = (vertex: Vertex) => (graph: Graph) => Vertex[];
+
+export const getNeighbors: GetNeighbors = (vertexToFindNeighborsFor) => (graph) => {
+  const edges = getEdges(graph);
+  const emptyVertexList: Vertex[] = [];
+
+  return pipe(
+    edges,
+    array.reduce(emptyVertexList, (listOfVerticiesSoFar, [start, end]) => {
+      // TODO: vertex.Eq?
+      if (start === vertexToFindNeighborsFor) return [...listOfVerticiesSoFar, end];
+
+      if (end === vertexToFindNeighborsFor) return [...listOfVerticiesSoFar, start];
+
+      return listOfVerticiesSoFar;
+    }),
+  );
+};
